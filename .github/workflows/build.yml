@@ -1,0 +1,148 @@
+name: Build and Commit Binaries
+
+on:
+  # Trigger manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Which platforms to build'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - macos
+          - linux
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # macOS — Apple Silicon (arm64)
+  # ---------------------------------------------------------------------------
+  build-macos:
+    name: Build — macOS arm64
+    runs-on: macos-latest
+    if: ${{ github.event.inputs.platforms == 'all' || github.event.inputs.platforms == 'macos' }}
+
+    steps:
+      - name: Checkout loom-binaries repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install cmake glpk cbc protobuf libzip
+
+      - name: Clone LOOM
+        run: git clone --recurse-submodules https://github.com/ad-freiburg/loom.git
+
+      - name: Build
+        run: |
+          cd loom
+          mkdir build && cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_STANDARD=17 \
+            -DLOOM_USE_GUROBI=OFF
+          make -j$(sysctl -n hw.logicalcpu)
+
+      - name: Package ZIP
+        run: |
+          mkdir -p dist
+          for bin in loom topo octi gtfs2graph transitmap topoeval; do
+            [ -f loom/build/$bin ] && cp loom/build/$bin dist/ && echo "  copied $bin"
+          done
+          cd dist && zip -r ../loom-binaries-macos-arm64.zip .
+          echo "ZIP size: $(du -sh ../loom-binaries-macos-arm64.zip | cut -f1)"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: loom-binaries-macos-arm64
+          path: loom-binaries-macos-arm64.zip
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # Linux — Ubuntu 20.04 x64
+  # ---------------------------------------------------------------------------
+  build-linux:
+    name: Build — Linux x64
+    runs-on: ubuntu-20.04
+    if: ${{ github.event.inputs.platforms == 'all' || github.event.inputs.platforms == 'linux' }}
+
+    steps:
+      - name: Checkout loom-binaries repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake g++ make \
+            libglpk-dev coinor-libcbc-dev \
+            libprotobuf-dev protobuf-compiler \
+            libzip-dev git
+
+      - name: Clone LOOM
+        run: git clone --recurse-submodules https://github.com/ad-freiburg/loom.git
+
+      - name: Build
+        run: |
+          cd loom
+          mkdir build && cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLOOM_USE_GUROBI=OFF
+          make -j$(nproc)
+
+      - name: Package ZIP
+        run: |
+          mkdir -p dist
+          for bin in loom topo octi gtfs2graph transitmap topoeval; do
+            [ -f loom/build/$bin ] && cp loom/build/$bin dist/ && echo "  copied $bin"
+          done
+          cd dist && zip -r ../loom-binaries-linux-x64.zip .
+          echo "ZIP size: $(du -sh ../loom-binaries-linux-x64.zip | cut -f1)"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: loom-binaries-linux-x64
+          path: loom-binaries-linux-x64.zip
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # Commit ZIPs back to the repo
+  # ---------------------------------------------------------------------------
+  commit:
+    name: Commit ZIPs to repo
+    runs-on: ubuntu-latest
+    needs: [build-macos, build-linux]
+    if: always() && (needs.build-macos.result == 'success' || needs.build-linux.result == 'success')
+
+    steps:
+      - name: Checkout loom-binaries repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Move ZIPs to repo root
+        run: |
+          find artifacts/ -name "*.zip" -exec mv {} . \;
+          ls -lh *.zip
+
+      - name: Commit and push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add loom-binaries-macos-arm64.zip loom-binaries-linux-x64.zip || true
+          git diff --cached --quiet && echo "Nothing to commit" && exit 0
+          git commit -m "chore: update binaries $(date +'%Y-%m-%d')
+
+          Built by GitHub Actions
+          Runner: macos-latest (arm64), ubuntu-20.04 (x64)
+          LOOM source: github.com/ad-freiburg/loom (latest main)"
+          git push
