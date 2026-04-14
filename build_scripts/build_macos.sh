@@ -28,7 +28,8 @@ mkdir -p build && cd build
 cmake .. \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CXX_STANDARD=17 \
-  -DLOOM_USE_GUROBI=OFF
+  -DLOOM_USE_GUROBI=OFF \
+  -DCOIN_INCLUDE_DIR="$(brew --prefix)/include/cbc"
 make -j$(sysctl -n hw.logicalcpu)
 
 echo "=== Packaging ==="
