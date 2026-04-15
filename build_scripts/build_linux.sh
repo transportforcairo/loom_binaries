@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# build_linux.sh — Build LOOM on Ubuntu 20.04+ and output loom-binaries-linux-x64.zip
+# build_linux.sh — Build LOOM on Ubuntu 22.04+ and output loom-binaries-linux-x64.zip
 #                  in the repo root.
 #
 # Run from the repo root:
 #   bash build_scripts/build_linux.sh
 #
-# Requires: Ubuntu 20.04+, sudo access
+# Requires: Ubuntu 22.04+, sudo access
 
 set -euo pipefail
 
