@@ -34,6 +34,21 @@ jobs:
       - name: Clone LOOM
         run: git clone --recurse-submodules https://github.com/ad-freiburg/loom.git
 
+      - name: Debug Homebrew CBC layout
+        run: |
+          BREW=$(brew --prefix)
+          echo "=== Homebrew prefix: $BREW ==="
+          echo "--- /opt/homebrew/include/ (coin/cbc related) ---"
+          ls "$BREW/include/" | grep -iE "coin|cbc|clp|osi"
+          echo "--- /opt/homebrew/include/cbc/ ---"
+          ls "$BREW/include/cbc/" 2>/dev/null || echo "  (directory does not exist)"
+          echo "--- /opt/homebrew/include/coin/ ---"
+          ls "$BREW/include/coin/" 2>/dev/null || echo "  (directory does not exist)"
+          echo "--- find CbcModel.hpp ---"
+          find "$BREW/include" -name "CbcModel.hpp" 2>/dev/null
+          echo "--- find CbcSolver.hpp ---"
+          find "$BREW/include" -name "CbcSolver.hpp" 2>/dev/null
+
       - name: Build
         run: |
           BREW=$(brew --prefix)
