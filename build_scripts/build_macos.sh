@@ -26,14 +26,13 @@ echo "=== Building ==="
 cd loom
 mkdir -p build && cd build
 BREW=$(brew --prefix)
-# FindCOIN.cmake looks for coin/CbcModel.hpp — on Homebrew headers live at
-# include/cbc/coin/ so COIN_ROOT_DIR must point to include/cbc.
+# FindCOIN.cmake uses FIND_PATH for coin/CbcModel.hpp — patch it to add
+# the Homebrew-specific hint before running cmake.
+sed -i "" "s|HINTS /usr/local/coin-Cbc/|HINTS /usr/local/coin-Cbc/\n  HINTS \"${BREW}/include/cbc\"|" ../cmake/FindCOIN.cmake
 cmake .. \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CXX_STANDARD=17 \
-  -DLOOM_USE_GUROBI=OFF \
-  -DCOIN_ROOT_DIR="$BREW/include/cbc" \
-  -DCMAKE_LIBRARY_PATH="$BREW/lib"
+  -DLOOM_USE_GUROBI=OFF
 make -j$(sysctl -n hw.logicalcpu)
 
 echo "=== Packaging ==="
