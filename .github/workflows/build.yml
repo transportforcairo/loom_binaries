@@ -141,11 +141,12 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add loom-binaries-macos-arm64.zip loom-binaries-linux-x64.zip || true
+          git add loom-binaries-macos-arm64.zip || true
+          git add loom-binaries-linux-x64.zip || true
           git diff --cached --quiet && echo "Nothing to commit" && exit 0
           git commit -m "chore: update binaries $(date +'%Y-%m-%d')
 
           Built by GitHub Actions
-          Runner: macos-latest (arm64), ubuntu-20.04 (x64)
+          Runner: macos-latest (arm64), ubuntu-22.04 (x64)
           LOOM source: github.com/ad-freiburg/loom (latest main)"
           git push
