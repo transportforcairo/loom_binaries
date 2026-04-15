@@ -26,13 +26,14 @@ echo "=== Building ==="
 cd loom
 mkdir -p build && cd build
 BREW=$(brew --prefix)
-# FindCOIN.cmake looks for coin/CbcModel.hpp — create the symlink Homebrew doesn't
-ln -sf "$BREW/include/cbc" "$BREW/include/coin"
+# FindCOIN.cmake looks for coin/CbcModel.hpp — on Homebrew headers live at
+# include/cbc/coin/ so COIN_ROOT_DIR must point to include/cbc.
 cmake .. \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CXX_STANDARD=17 \
   -DLOOM_USE_GUROBI=OFF \
-  -DCOIN_ROOT_DIR="$BREW"
+  -DCOIN_ROOT_DIR="$BREW/include/cbc" \
+  -DCMAKE_LIBRARY_PATH="$BREW/lib"
 make -j$(sysctl -n hw.logicalcpu)
 
 echo "=== Packaging ==="
