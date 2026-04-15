@@ -38,16 +38,12 @@ jobs:
         run: |
           BREW=$(brew --prefix)
           echo "=== Homebrew prefix: $BREW ==="
-          echo "--- /opt/homebrew/include/ (coin/cbc related) ---"
-          ls "$BREW/include/" | grep -iE "coin|cbc|clp|osi"
-          echo "--- /opt/homebrew/include/cbc/ ---"
-          ls "$BREW/include/cbc/" 2>/dev/null || echo "  (directory does not exist)"
-          echo "--- /opt/homebrew/include/coin/ ---"
-          ls "$BREW/include/coin/" 2>/dev/null || echo "  (directory does not exist)"
-          echo "--- find CbcModel.hpp ---"
-          find "$BREW/include" -name "CbcModel.hpp" 2>/dev/null
-          echo "--- find CbcSolver.hpp ---"
-          find "$BREW/include" -name "CbcSolver.hpp" 2>/dev/null
+          echo "--- /opt/homebrew/include/cbc/coin/ contents ---"
+          ls "$BREW/include/cbc/coin/" 2>/dev/null || echo "  (directory does not exist)"
+          echo "--- find CbcModel (any extension) ---"
+          find "$BREW/include" -iname "CbcModel*" 2>/dev/null
+          echo "--- find CbcSolver (any extension) ---"
+          find "$BREW/include" -iname "CbcSolver*" 2>/dev/null
 
       - name: Build
         run: |
