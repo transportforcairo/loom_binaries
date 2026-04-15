@@ -29,30 +29,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: brew install cmake glpk cbc protobuf libzip
+        run: |
+          brew install --force --overwrite cmake glpk protobuf libzip
+          brew tap coin-or-tools/coinor
+          brew install --force --overwrite coin-or-tools/coinor/cbc
 
       - name: Clone LOOM
         run: git clone --recurse-submodules https://github.com/ad-freiburg/loom.git
 
-      - name: Debug Homebrew CBC layout
-        run: |
-          BREW=$(brew --prefix)
-          echo "=== Homebrew prefix: $BREW ==="
-          echo "--- /opt/homebrew/include/cbc/coin/ contents ---"
-          ls "$BREW/include/cbc/coin/" 2>/dev/null || echo "  (directory does not exist)"
-          echo "--- find CbcModel (any extension) ---"
-          find "$BREW/include" -iname "CbcModel*" 2>/dev/null
-          echo "--- find CbcSolver (any extension) ---"
-          find "$BREW/include" -iname "CbcSolver*" 2>/dev/null
-
       - name: Build
         run: |
-          BREW=$(brew --prefix)
-          # FindCOIN.cmake uses FIND_PATH to search for coin/CbcModel.hpp.
-          # On Homebrew the layout is include/cbc/coin/CbcModel.hpp.
-          # We patch the finder directly to add this Homebrew-specific hint
-          # since no cmake variable can inject it after FIND_PATH caches NOTFOUND.
-          sed -i "" "s|HINTS /usr/local/coin-Cbc/|HINTS /usr/local/coin-Cbc/\n  HINTS \"${BREW}/include/cbc\"|" loom/cmake/FindCOIN.cmake
           cd loom
           mkdir -p build && cd build
           cmake .. \

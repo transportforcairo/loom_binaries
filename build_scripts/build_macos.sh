@@ -14,7 +14,9 @@ ARCH=$(uname -m)   # arm64 or x86_64
 ZIP_NAME="loom-binaries-macos-${ARCH}.zip"
 
 echo "=== Installing Homebrew dependencies ==="
-brew install cmake glpk cbc protobuf libzip
+brew install --force --overwrite cmake glpk protobuf libzip
+brew tap coin-or-tools/coinor
+brew install --force --overwrite coin-or-tools/coinor/cbc
 
 echo "=== Cloning LOOM ==="
 cd "$REPO_ROOT"
@@ -25,10 +27,6 @@ fi
 echo "=== Building ==="
 cd loom
 mkdir -p build && cd build
-BREW=$(brew --prefix)
-# FindCOIN.cmake uses FIND_PATH for coin/CbcModel.hpp — patch it to add
-# the Homebrew-specific hint before running cmake.
-sed -i "" "s|HINTS /usr/local/coin-Cbc/|HINTS /usr/local/coin-Cbc/\n  HINTS \"${BREW}/include/cbc\"|" ../cmake/FindCOIN.cmake
 cmake .. \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CXX_STANDARD=17 \
