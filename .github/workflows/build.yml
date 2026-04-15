@@ -37,15 +37,17 @@ jobs:
       - name: Build
         run: |
           BREW=$(brew --prefix)
+          # FindCOIN.cmake looks for coin/CbcModel.hpp under a prefix dir.
+          # Homebrew puts headers in include/cbc/ not include/coin/, so we
+          # create a coin/ symlink to satisfy the finder.
+          ln -sf "$BREW/include/cbc" "$BREW/include/coin"
           cd loom
           mkdir build && cd build
           cmake .. \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_STANDARD=17 \
             -DLOOM_USE_GUROBI=OFF \
-            -DCMAKE_PREFIX_PATH="$BREW" \
-            -DCMAKE_CXX_FLAGS="-I$BREW/include/cbc -I$BREW/include/clp -I$BREW/include/coin" \
-            -DCMAKE_EXE_LINKER_FLAGS="-L$BREW/lib"
+            -DCOIN_ROOT_DIR="$BREW"
           make -j$(sysctl -n hw.logicalcpu)
 
       - name: Package ZIP
