@@ -1,6 +1,6 @@
 # loom-binaries
 
-Pre-built binaries of the [LOOM](https://github.com/ad-freiburg/loom) transit map generation suite for Windows, macOS, and Linux. Consumed automatically by the [QGIS LOOM plugin](https://github.com/transportforcairo/qgis-loom-plugin) — end users do not need to interact with this repo directly.
+Pre-built binaries of the [LOOM](https://github.com/ad-freiburg/loom) transit map generation suite for Windows, macOS, and Linux. Consumed automatically by the [QGIS LOOM plugin](https://github.com/transportforcairo/qgis_loom) — end users do not need to interact with this repo directly.
 
 **LOOM** © University of Freiburg (Hannah Bast, Patrick Brosi, Sabine Storandt), GPL-3.0.  
 **Windows port** by [Transport for Cairo](https://transportforcairo.com), 2026.
