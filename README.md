@@ -103,7 +103,8 @@ loom-binaries/
 │   ├── build_linux.sh                 Self-contained Linux x64 build
 │   ├── verify_binaries.sh             Linkage check + pipeline smoke test
 │   ├── update_checksums.sh            Regenerates SHA256SUMS
-│   └── test_data/gtfs/                Tiny synthetic GTFS feed for the smoke test
+│   ├── test_data/gtfs/                Tiny synthetic GTFS feed for the smoke test
+│   └── vendor/glpk-5.0.tar.gz         Official GLPK source (GNU servers are often unreachable from CI; checksum-verified)
 ├── patches/                           R1–R10 Windows compatibility patches
 │   ├── loom-patches/                  (copy from loom-windows-port repo)
 │   ├── loom-patches-r2/

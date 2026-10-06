@@ -19,12 +19,22 @@ LOOM_REPO="${LOOM_REPO:-https://github.com/ad-freiburg/loom.git}"
 LOOM_REF="${LOOM_REF:-1e4757838104d1e4d22186c9b77d5fc4b98681a0}"
 
 GLPK_VERSION="${GLPK_VERSION:-5.0}"
+# SHA-256 of the official GNU release tarball (same as Homebrew's formula).
 GLPK_SHA256="${GLPK_SHA256:-4a1013eebb50f728fc601bdd833b0b2870333c3b3e5a816eeba921d95bec6f15}"
+
+# The source tarball is committed in build_scripts/vendor/ because the GNU
+# servers are often unreachable from GitHub's runners. The URLs are only a
+# fallback (e.g. after bumping GLPK_VERSION); the checksum is always verified,
+# so plain-http mirrors are safe. Ubuntu's .orig tarball is the unmodified
+# upstream file.
+_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GLPK_VENDORED="${_COMMON_DIR}/vendor/glpk-${GLPK_VERSION}.tar.gz"
 GLPK_URLS=(
+  "http://archive.ubuntu.com/ubuntu/pool/universe/g/glpk/glpk_${GLPK_VERSION}.orig.tar.gz"
   "https://ftpmirror.gnu.org/glpk/glpk-${GLPK_VERSION}.tar.gz"
   "https://ftp.gnu.org/gnu/glpk/glpk-${GLPK_VERSION}.tar.gz"
 )
-# Set GLPK_SRC_DIR to an unpacked GLPK source tree to skip the download.
+# Set GLPK_SRC_DIR to an unpacked GLPK source tree to skip the tarball.
 GLPK_SRC_DIR="${GLPK_SRC_DIR:-}"
 
 BINARIES=(loom topo octi gtfs2graph transitmap topoeval)
@@ -67,10 +77,18 @@ build_glpk() {
     src="$GLPK_SRC_DIR"
   else
     local tarball="$work/glpk-${GLPK_VERSION}.tar.gz" url ok=0
-    for url in "${GLPK_URLS[@]}"; do
-      if curl -fsSL --retry 3 -o "$tarball" "$url"; then ok=1; break; fi
-    done
-    [ "$ok" = 1 ] || { echo "ERROR: could not download GLPK ${GLPK_VERSION}"; exit 1; }
+    if [ -f "$GLPK_VENDORED" ]; then
+      echo "Using vendored ${GLPK_VENDORED#"$_COMMON_DIR"/}"
+      cp "$GLPK_VENDORED" "$tarball"
+    else
+      for url in "${GLPK_URLS[@]}"; do
+        echo "Downloading $url"
+        if curl -fsSL --connect-timeout 20 --max-time 300 --retry 2 -o "$tarball" "$url"; then
+          ok=1; break
+        fi
+      done
+      [ "$ok" = 1 ] || { echo "ERROR: could not download GLPK ${GLPK_VERSION}"; exit 1; }
+    fi
     local got; got="$(sha256_of "$tarball")"
     if [ "$got" != "$GLPK_SHA256" ]; then
       echo "ERROR: GLPK tarball checksum mismatch (got $got, expected $GLPK_SHA256)"

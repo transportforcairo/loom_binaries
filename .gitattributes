@@ -6,3 +6,4 @@ SHA256SUMS               text eol=lf
 build_scripts/test_data/** text eol=lf
 
 *.zip                    binary
+*.tar.gz                 binary

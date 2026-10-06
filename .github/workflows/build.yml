@@ -50,14 +50,22 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
-  # Linux — x64, built on Ubuntu 22.04 for an old-enough glibc
+  # Linux — x64, built inside an Ubuntu 22.04 container so the binaries keep
+  # running on glibc 2.34+ distros. (The ubuntu-22.04 *runner* is deprecated
+  # by GitHub, with scheduled brownouts; the container is not affected.)
   # ---------------------------------------------------------------------------
   build-linux:
     name: Build — Linux x64
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    container: ubuntu:22.04
     if: ${{ github.event_name == 'pull_request' || inputs.platforms == 'all' || inputs.platforms == 'linux' }}
 
     steps:
+      - name: Install git (needed by checkout)
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git ca-certificates
+
       - name: Checkout loom-binaries repo
         uses: actions/checkout@v4
 
