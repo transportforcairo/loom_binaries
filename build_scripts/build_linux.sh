@@ -1,47 +1,51 @@
 #!/usr/bin/env bash
-# build_linux.sh — Build LOOM on Ubuntu 22.04+ and output loom-binaries-linux-x64.zip
-#                  in the repo root.
+# build_linux.sh — Build self-contained LOOM binaries for Linux x64 and write
+#                  loom-binaries-linux-x64.zip in the repo root.
 #
 # Run from the repo root:
 #   bash build_scripts/build_linux.sh
 #
-# Requires: Ubuntu 22.04+, sudo access
+# Requires: Ubuntu 22.04 (its glibc is the oldest the binaries will run on),
+#           sudo for apt. Set SKIP_DEPS=1 if the build tools are already there.
+#
+# The binaries only need libraries every Linux desktop has (glibc, libgcc,
+# libgomp, zlib, bzip2). libstdc++ and GLPK are linked statically. See
+# common.sh for what is enabled/disabled and why.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ZIP_NAME="loom-binaries-linux-x64.zip"
+# shellcheck source=common.sh
+source "$REPO_ROOT/build_scripts/common.sh"
 
-echo "=== Installing apt dependencies ==="
-sudo apt-get update
-sudo apt-get install -y \
-  cmake g++ make \
-  libglpk-dev coinor-libcbc-dev \
-  libprotobuf-dev protobuf-compiler \
-  libzip-dev git
+ZIP_PATH="$REPO_ROOT/loom-binaries-linux-x64.zip"
+WORK="$REPO_ROOT/_build/linux"
+DEPS="$WORK/deps"
 
-echo "=== Cloning LOOM ==="
-cd "$REPO_ROOT"
-if [ ! -d loom ]; then
-  git clone --recurse-submodules https://github.com/ad-freiburg/loom.git
+if [ "${SKIP_DEPS:-0}" != "1" ]; then
+  log "Installing build tools (apt)"
+  sudo apt-get update
+  # Deliberately NOT installing libzip-dev, libglpk-dev or coinor-libcbc-dev:
+  # the binaries must not depend on them at runtime.
+  sudo apt-get install -y cmake g++ make git curl zip zlib1g-dev libbz2-dev
 fi
 
-echo "=== Building ==="
-cd loom
-mkdir -p build && cd build
-cmake .. \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DLOOM_USE_GUROBI=OFF
-make -j$(nproc)
+log "Building GLPK ${GLPK_VERSION} (static)"
+build_glpk "$WORK" "$DEPS"
 
-echo "=== Packaging ==="
-cd "$REPO_ROOT"
-mkdir -p dist
-for bin in loom topo octi gtfs2graph transitmap topoeval; do
-  [ -f loom/build/$bin ] && cp loom/build/$bin dist/ && echo "  copied $bin"
-done
+log "Fetching LOOM"
+fetch_loom "$WORK/loom"
 
-cd dist && zip -r "../$ZIP_NAME" . && cd ..
+log "Building LOOM"
+build_loom "$WORK/loom" "$WORK/build" "$DEPS" \
+  -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+
+log "Verifying"
+bash "$REPO_ROOT/build_scripts/verify_binaries.sh" "$WORK/build"
+
+log "Packaging"
+package "$WORK/build" "$ZIP_PATH"
+
 echo ""
-echo "=== Done: $ZIP_NAME ($(du -sh $ZIP_NAME | cut -f1)) ==="
-echo "Commit and push $ZIP_NAME to publish."
+echo "Done: $ZIP_PATH"
+echo "Next: bash build_scripts/update_checksums.sh, then commit the ZIP and SHA256SUMS."

@@ -1,0 +1,4 @@
+route_id,agency_id,route_short_name,route_long_name,route_type,route_color,route_text_color
+R1,A1,1,Alpha - Foxtrot,3,E3000F,FFFFFF
+R2,A1,2,Bravo - Echo,3,0072BC,FFFFFF
+R3,A1,3,Alpha - Echo,3,00A651,FFFFFF

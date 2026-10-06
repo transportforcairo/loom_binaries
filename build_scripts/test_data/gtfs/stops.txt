@@ -1,0 +1,7 @@
+stop_id,stop_name,stop_lat,stop_lon
+S1,Alpha,30.0400,31.2300
+S2,Bravo,30.0450,31.2400
+S3,Charlie,30.0500,31.2500
+S4,Delta,30.0550,31.2600
+S5,Echo,30.0650,31.2550
+S6,Foxtrot,30.0600,31.2700

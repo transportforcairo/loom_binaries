@@ -1,0 +1,27 @@
+name: Verify checksums
+
+# The QGIS plugin refuses to install a ZIP whose SHA-256 does not match
+# SHA256SUMS at the pinned tag. This catches a ZIP committed without running
+# build_scripts/update_checksums.sh (e.g. a manual Windows build) before it is
+# tagged.
+
+on:
+  push:
+  pull_request:
+  # Commits pushed by the build workflow's bot don't trigger other workflows,
+  # so run this by hand after a build (Actions → Verify checksums → Run).
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every ZIP is listed and matches
+        run: |
+          set -euo pipefail
+          for z in loom-binaries-*.zip; do
+            grep -q "  \*\?$z\$" SHA256SUMS || { echo "::error::$z is missing from SHA256SUMS — run build_scripts/update_checksums.sh"; exit 1; }
+          done
+          sha256sum -c SHA256SUMS
