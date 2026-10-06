@@ -1,7 +1,7 @@
 name: Build and Commit Binaries
 
 on:
-  # Trigger manually from the Actions tab
+  # Build, verify and commit the ZIPs — trigger manually from the Actions tab
   workflow_dispatch:
     inputs:
       platforms:
@@ -14,118 +14,85 @@ on:
           - macos
           - linux
 
+  # Build and verify only (nothing is committed) when the build changes
+  pull_request:
+    paths:
+      - 'build_scripts/**'
+      - '.github/workflows/build.yml'
+
 jobs:
 
   # ---------------------------------------------------------------------------
-  # macOS — Apple Silicon (arm64)
+  # macOS — Apple Silicon (arm64), runs on macOS 12+ without Homebrew
   # ---------------------------------------------------------------------------
   build-macos:
     name: Build — macOS arm64
     runs-on: macos-latest
-    if: ${{ github.event.inputs.platforms == 'all' || github.event.inputs.platforms == 'macos' }}
+    if: ${{ github.event_name == 'pull_request' || inputs.platforms == 'all' || inputs.platforms == 'macos' }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '12.0'
 
     steps:
       - name: Checkout loom-binaries repo
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          brew install --force --overwrite cmake glpk protobuf libzip
-          brew tap coin-or-tools/coinor
-          brew install --force --overwrite coin-or-tools/coinor/cbc
-
-      - name: Clone LOOM
-        run: git clone --recurse-submodules https://github.com/ad-freiburg/loom.git
-
-      - name: Build
-        run: |
-          cd loom
-          mkdir -p build && cd build
-          cmake .. \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_STANDARD=17 \
-            -DLOOM_USE_GUROBI=OFF
-          make -j$(sysctl -n hw.logicalcpu)
-
-      - name: Package ZIP
-        run: |
-          mkdir -p dist
-          for bin in loom topo octi gtfs2graph transitmap topoeval; do
-            [ -f loom/build/$bin ] && cp loom/build/$bin dist/ && echo "  copied $bin"
-          done
-          cd dist && zip -r ../loom-binaries-macos-arm64.zip .
-          echo "ZIP size: $(du -sh ../loom-binaries-macos-arm64.zip | cut -f1)"
+      # Builds static GLPK + LOOM, then runs verify_binaries.sh, which fails
+      # the job if any binary links a non-system library (e.g. /opt/homebrew)
+      # or needs a newer macOS than MACOSX_DEPLOYMENT_TARGET.
+      - name: Build, verify and package
+        run: bash build_scripts/build_macos.sh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: loom-binaries-macos-arm64
           path: loom-binaries-macos-arm64.zip
-          retention-days: 1
+          retention-days: 7
 
   # ---------------------------------------------------------------------------
-  # Linux — Ubuntu 20.04 x64
+  # Linux — x64, built inside an Ubuntu 22.04 container so the binaries keep
+  # running on glibc 2.34+ distros. (The ubuntu-22.04 *runner* is deprecated
+  # by GitHub, with scheduled brownouts; the container is not affected.)
   # ---------------------------------------------------------------------------
   build-linux:
     name: Build — Linux x64
-    runs-on: ubuntu-22.04
-    if: ${{ github.event.inputs.platforms == 'all' || github.event.inputs.platforms == 'linux' }}
+    runs-on: ubuntu-24.04
+    container: ubuntu:22.04
+    if: ${{ github.event_name == 'pull_request' || inputs.platforms == 'all' || inputs.platforms == 'linux' }}
 
     steps:
+      - name: Install git (needed by checkout)
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git ca-certificates
+
       - name: Checkout loom-binaries repo
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake g++ make \
-            libglpk-dev coinor-libcbc-dev \
-            libprotobuf-dev protobuf-compiler \
-            libzip-dev git
-
-      - name: Clone LOOM
-        run: git clone --recurse-submodules https://github.com/ad-freiburg/loom.git
-
-      - name: Build
-        run: |
-          cd loom
-          mkdir build && cd build
-          cmake .. \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLOOM_USE_GUROBI=OFF
-          make -j$(nproc)
-
-      - name: Package ZIP
-        run: |
-          mkdir -p dist
-          for bin in loom topo octi gtfs2graph transitmap topoeval; do
-            [ -f loom/build/$bin ] && cp loom/build/$bin dist/ && echo "  copied $bin"
-          done
-          cd dist && zip -r ../loom-binaries-linux-x64.zip .
-          echo "ZIP size: $(du -sh ../loom-binaries-linux-x64.zip | cut -f1)"
+      - name: Build, verify and package
+        run: bash build_scripts/build_linux.sh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: loom-binaries-linux-x64
           path: loom-binaries-linux-x64.zip
-          retention-days: 1
+          retention-days: 7
 
   # ---------------------------------------------------------------------------
-  # Commit ZIPs back to the repo
+  # Commit ZIPs + refreshed SHA256SUMS back to the repo (manual runs only)
   # ---------------------------------------------------------------------------
   commit:
     name: Commit ZIPs to repo
     runs-on: ubuntu-latest
     needs: [build-macos, build-linux]
-    if: always() && (needs.build-macos.result == 'success' || needs.build-linux.result == 'success')
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout loom-binaries repo
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -137,16 +104,17 @@ jobs:
           find artifacts/ -name "*.zip" -exec mv {} . \;
           ls -lh *.zip
 
+      - name: Update SHA256SUMS
+        run: bash build_scripts/update_checksums.sh
+
       - name: Commit and push
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add loom-binaries-macos-arm64.zip || true
-          git add loom-binaries-linux-x64.zip || true
+          git add loom-binaries-*.zip SHA256SUMS
           git diff --cached --quiet && echo "Nothing to commit" && exit 0
           git commit -m "chore: update binaries $(date +'%Y-%m-%d')
 
-          Built by GitHub Actions
-          Runner: macos-latest (arm64), ubuntu-22.04 (x64)
-          LOOM source: github.com/ad-freiburg/loom (latest main)"
+          Built by GitHub Actions (${{ github.workflow }} #${{ github.run_number }})
+          LOOM source: github.com/ad-freiburg/loom (commit pinned in build_scripts/common.sh)"
           git push

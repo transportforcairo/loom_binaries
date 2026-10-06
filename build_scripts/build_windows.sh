@@ -67,4 +67,10 @@ done
 cd dist && zip -r "../$ZIP_NAME" . && cd ..
 echo ""
 echo "=== Done: $ZIP_NAME ($(du -sh $ZIP_NAME | cut -f1)) ==="
-echo "Commit and push $ZIP_NAME to publish."
+
+echo "=== Updating SHA256SUMS ==="
+bash "$REPO_ROOT/build_scripts/update_checksums.sh"
+
+echo ""
+echo "Commit and push $ZIP_NAME together with SHA256SUMS to publish."
+echo "(The QGIS plugin rejects a ZIP whose hash is not in SHA256SUMS.)"

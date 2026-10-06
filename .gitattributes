@@ -1,0 +1,9 @@
+# Shell scripts must keep LF endings or bash (incl. MSYS2) fails on Windows
+# checkouts with core.autocrlf=true.
+*.sh                     text eol=lf
+*.yml                    text eol=lf
+SHA256SUMS               text eol=lf
+build_scripts/test_data/** text eol=lf
+
+*.zip                    binary
+*.tar.gz                 binary

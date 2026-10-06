@@ -1,0 +1,4 @@
+# Build trees created by build_scripts/*.sh
+_build/
+dist/
+loom/
